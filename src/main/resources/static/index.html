@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>新闻管理</title>
+    <link rel="stylesheet" type="text/css" href="css/news.css" />
+    <script src="js/vue.js"></script>
+    <script src="js/axios.min.js"></script>
+</head>
+<body>
+    <div style="text-align: center"><h2>新闻管理</h2></div>
+    <div style="text-align: right;padding: 10px 50px 10px 0">
+        <a href="/newsType.html">新闻类型管理</a>
+    </div>
+<div id="app" style="display: flex;" >
+    <div class="sidePadDiv"></div>
+    <div class="middleDiv">
+        <div class="operatorDiv">
+            <input type="search" placeholder="输入搜索新闻名称关键字" v-model="searchMap.keywords">
+            <input id="search" type="button" @click="search()" value="搜索"/>
+            <input id="add" @click="edit()" value="新增" type="button"/>
+
+        </div>
+        <div class="dataTableDiv">
+            <table>
+                <thead>
+                <tr>
+                    <td style="border-left: none">新闻ID</td>
+                    <td>新闻名称</td>
+                    <td>新闻类型</td>
+                    <td style="border-right: none">操作</td>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="entity in resultMap.records">
+                    <td style="text-align: center;border-left: none">{{entity.id}}</td>
+                    <td>{{entity.newsName}}</td>
+                    <td style="text-align: center">{{newsTypeMap.get(entity.newsTypeId)}}</td>
+                    <td  style="text-align: center;border-right: none">
+                        <button @click="edit(entity.id)" type="button">修改</button>
+                        <button @click="deleteNews(entity.id)" type="button">删除</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="pageDiv">
+            <ul>
+                <li :class="['prev',searchMap.pageNo>1?'':'downUpDisabled']">
+                    <a @click.prevent="queryByPage(searchMap.pageNo-1)" href="#">«上一页</a>
+                </li>
+                <li v-if="frontDot" class="dotted"><span>...</span></li>
+                <li v-for="pn in pageNoList" :class="searchMap.pageNo==pn?'active':''">
+                    <a @click.prevent="queryByPage(pn)" href="#">{{pn}}</a>
+                </li>
+                <li v-if="backDot" class="dotted"><span>...</span></li>
+                <li :class="['next',searchMap.pageNo<resultMap.pages?'':'downUpDisabled']">
+                    <a @click.prevent="queryByPage(searchMap.pageNo+1)" href="#">下一页»</a>
+                </li>
+            </ul>
+            <div><span>共 {{resultMap.pages}} 页&nbsp;</span><span>
+                      跳转到第
+                      <input id="pnum" @keyup.enter="queryByPage(searchMap.pageNo)" v-model.number="searchMap.pageNo" type="text" class="page-num">
+                      页</span></div>
+        </div>
+    </div>
+    <div class="sidePadDiv"></div>
+
+    <!-- 遮罩层 -->
+    <div class="overlay" v-show="overlayVisible">
+        <div class="modal">
+            <h2>{{showOperation}}新闻</h2>
+            <form @submit.prevent="submitForm">
+                <div class="formEleDiv">
+                    <label>新闻名称:</label>
+                    <input type="text" v-model="news.newsName" required>
+                </div>
+                <br>
+                <div class="formEleDiv">
+                    <label>新闻类型:</label>
+                    <select v-model="firstNewsTypeId" @change="selectFirstNewsType()">
+                        <option value="">请选择类型</option>
+                        <option v-for="option in newsTypeList" :value="option.id">{{ option.typeName }}</option>
+                    </select>
+                    <select v-model="secondNewsTypeId" @change="selectSecondNewsType()">
+                        <option value="">请选择类型</option>
+                        <option v-for="option in secondNewsTypeList" :value="option.id">{{ option.typeName }}</option>
+                    </select>
+                    <select v-model="thirdNewsTypeId">
+                        <option value="">请选择类型</option>
+                        <option v-for="option in thirdNewsTypeList" :value="option.id">{{ option.typeName }}</option>
+                    </select>
+                </div>
+                <br>
+                <div class="formBtnDiv">
+                    <input type="submit" value="提交">
+                    <input type="button" @click="closeOverlay()" value="关闭" style="float-displace:line;margin-left: 10px">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    var app = new Vue({
+        el:"#app",//el即element，要渲染的页面元素
+        data: {
+            newsList:[],
+            productTypes: [],
+            //查询条件
+            searchMap: {"keywords": "","pageNo": 1, "pageSize": 3},
+            //搜索结果
+            resultMap: {"total": 0, "pages": 0, "records":[]},
+            //导航条-页号数组
+            pageNoList: [],
+            //导航条-前面3个点
+            frontDot: false,
+            //导航条-后面3个点
+            backDot: false,
+            //遮罩层
+            overlayVisible: false,
+            news:{"newsName":"", "newsTypeId":""},
+            showOperation: "新增",
+            //新闻类型，一级分类
+            newsTypeList:[],
+            //新闻类型，二级分类
+            secondNewsTypeList:[],
+            //新闻类型，三级级分类
+            thirdNewsTypeList:[],
+            //所有新闻分类，缓存，用于列表显示中文
+            newsTypeMap:new Map(),
+            firstNewsTypeId: "",
+            secondNewsTypeId: "",
+            thirdNewsTypeId: ""
+        }, methods:{
+            findOne: function (id){
+              alert("findOne")
+            },
+            search: function () {
+                axios.post("/news/search?pageNo=" + this.searchMap.pageNo + "&pageSize=" + this.searchMap.pageSize
+                    , {"newsName": this.searchMap.keywords}).then(function (response) {
+                    app.resultMap = response.data.data;
+                    //构建分页导航条
+                    app.buildPagination();
+                });
+            },//构建分页导航条
+            buildPagination() {
+                this.pageNoList = [];
+
+                //定义要在页面显示的页号的数量
+                var showPageNoTotal = 5;
+
+                //起始页号
+                var startPageNo = 1;
+                //结束页号
+                var endPageNo = this.resultMap.pages;
+
+                //如果总页数大于要显示的页数才有需要处理显示页号数；否则直接显示所有页号
+                if (this.resultMap.pages > showPageNoTotal) {
+
+                    //计算当前页左右间隔页数
+                    var interval = Math.floor(showPageNoTotal / 2);
+
+                    //根据间隔得出起始、结束页号
+                    startPageNo = parseInt(this.searchMap.pageNo) - interval;
+                    endPageNo = parseInt(this.searchMap.pageNo) + interval;
+
+                    //处理页号越界
+                    if (startPageNo > 0) {
+                        if (endPageNo > this.resultMap.pages) {
+                            startPageNo = this.resultMap.pages - showPageNoTotal +1;
+                            endPageNo = this.resultMap.pages;
+                        }
+                    } else {
+                        endPageNo = showPageNoTotal;
+                        startPageNo = 1;
+                    }
+                }
+
+                //分页导航条上的前、后的那三个点
+                this.frontDot = false;
+                this.backDot = false;
+
+                if (1 < startPageNo) {
+                    this.frontDot = true;
+                }
+
+                if (endPageNo < this.resultMap.pages) {
+                    this.backDot = true;
+                }
+
+                //设置要显示的页号
+                for (let i = startPageNo; i <= endPageNo; i++) {
+                    this.pageNoList.push(i);
+                }
+            },
+            //根据页号查询
+            queryByPage: function (pageNo) {
+                if (0 < pageNo && pageNo <= this.resultMap.pages) {
+                    this.searchMap.pageNo = pageNo;
+                    this.search();
+                }
+            },
+            edit(newsId){
+                //新增还是修改
+                if (newsId === undefined) {
+                    //新增
+                    this.showOperation = "新增";
+                    this.resetForm();
+                } else {
+                    //修改
+                    this.showOperation = "修改";
+                    //查找新闻；进行回显
+                    axios.get("/news/" + newsId).then(function (response) {
+                        app.news = response.data;
+
+                        //回显级联下拉框；先查看是否在一级
+                        let inFirst = false;
+                        app.newsTypeList.forEach(function (item) {
+                            if(app.news.newsTypeId === item.id){
+                                app.firstNewsTypeId = item.id;
+                                inFirst = true;
+                            }
+                        });
+                        if (!inFirst) {
+                            //不在一级；查该类别
+                            axios.get("/newsType/" + app.news.newsTypeId).then(function (response) {
+                                let newsType = response.data;
+                                let inSecond = false;
+                                //查看是否父id是否在一级分类中，如果在说明是二级分类
+                                app.newsTypeList.forEach(function (item) {
+                                    if(newsType.parentId === item.id){
+                                        app.firstNewsTypeId = newsType.parentId;
+                                        app.selectFirstNewsType();
+                                        app.secondNewsTypeId = newsType.id;
+                                        inSecond = true;
+                                        return;
+                                    }
+                                });
+                                if (!inSecond) {
+                                    //不是二级则一定在三级目录
+                                    //加载三级的目录
+                                    axios.get("/newsType/" + newsType.id).then(function (response) {
+                                        app.secondNewsTypeId = response.data.parentId;
+                                        //查询二级
+                                        findNewsType(app.secondNewsTypeId).then(second => {
+                                            //查询一级
+                                            app.firstNewsTypeId = second.parentId;
+                                            app.selectFirstNewsType();
+                                            app.secondNewsTypeId = second.id;
+                                            //选中第三级
+                                            app.selectSecondNewsType();
+                                            app.thirdNewsTypeId = newsType.id;
+                                        });
+                                    });
+
+                                }
+                            });
+                        }
+
+                        function findNewsType(newsTypeId){
+                            return new Promise((resolve, reject) => {
+                                axios.get("/newsType/" + newsTypeId).then(response => {resolve(response.data)})
+                                    .catch(error => {reject(error)});
+                            });
+                        }
+                    });
+                }
+                //；打开新增页面
+                this.overlayVisible = true;
+            },
+            deleteNews(newsId){
+                axios.delete("/news?ids="+newsId).then(function (response){
+                    app.search();
+                });
+            },
+            submitForm() {
+                let newsTypeId = app.thirdNewsTypeId;
+                if (newsTypeId === undefined || newsTypeId === "") {
+                    newsTypeId = app.secondNewsTypeId;
+                    if(newsTypeId === undefined || newsTypeId === ""){
+                        newsTypeId = app.firstNewsTypeId;
+                        if(newsTypeId === undefined || newsTypeId === ""){
+                            newsTypeId=0;
+                        }
+                    }
+                }
+                app.news.newsTypeId = newsTypeId;
+                if (this.news.id === undefined) {
+                    axios.post("/news", app.news).then(function (response) {
+                        //刷新列表
+                        app.search();
+                        //关闭罩层
+                        app.closeOverlay();
+                        app.resetForm();
+                    });
+                } else {
+                    axios.put("/news", app.news).then(function (response) {
+                        //刷新列表
+                        app.search();
+                        //关闭罩层
+                        app.closeOverlay();
+                        app.resetForm();
+                    });
+                }
+            },
+            resetForm(){
+                this.news = {};
+                this.secondNewsTypeId = "";
+                this.secondNewsTypeList = [];
+                this.thirdNewsTypeId = "";
+                this.thirdNewsTypeList = [];
+
+            },
+            closeOverlay(){
+                this.overlayVisible = false;
+            },
+            searchNewsTypeList(){
+                //获取新闻类型
+                axios.get("/newsType/all").then(function (response) {
+                    //app.newsTypeList = response.data;
+                    response.data.forEach(function (item){
+                        app.newsTypeMap.set(item.id, item.typeName);
+                        if (item.parentId === 0) {
+                            app.newsTypeList.push(item);
+                        }
+                    });
+                });
+            },
+            selectFirstNewsType (){//加载二级分类列表
+                app.secondNewsTypeList = [];
+                app.secondNewsTypeId = "";
+                if (app.firstNewsTypeId !== "") {
+                    axios.get("/newsType/p/" + app.firstNewsTypeId).then(function (response) {
+                        app.secondNewsTypeList = response.data;
+                    });
+                }
+            },
+            selectSecondNewsType (){//加载三级分类列表
+                app.thirdNewsTypeList = [];
+                app.thirdNewsTypeId = "";
+                if (app.secondNewsTypeId !== "") {
+                    axios.get("/newsType/p/" + app.secondNewsTypeId).then(function (response) {
+                        app.thirdNewsTypeList = response.data;
+                    });
+                }
+            }
+        }
+        ,created(){
+            this.searchNewsTypeList();
+            this.search();
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,19 @@
+# 应用服务 WEB 访问端口
+server:
+  port: 8080
+spring:
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/news_manage?useSSL=false&useUnicode=true&characterEncoding=utf8
+    username: root
+    password: root
+# mybatis配置
+mybatis:
+  # 实体类别名包路径
+  type-aliases-package: com.example.news.pojo
+  # 映射文件路径
+  # mapper-locations: classpath:mappers/*.xml
+  configuration:
+    # 控制台输出执行sql
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
