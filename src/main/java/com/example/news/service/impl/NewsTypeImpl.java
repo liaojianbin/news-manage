@@ -19,19 +19,6 @@ public class NewsTypeImpl extends ServiceImpl<NewsTypeMapper, NewsType> implemen
     @Resource
     private NewsTypeMapper newsTypeMapper;
 
-    @Override
-    public Result search(Integer pageNum, Integer pageSize, NewsType newsType) {
-        LambdaQueryWrapper<NewsType> queryWrapper = new LambdaQueryWrapper<>();
-        if (newsType != null) {
-            if (StringUtils.isNotBlank(newsType.getTypeName())) {
-                queryWrapper.like(NewsType::getTypeName, newsType.getTypeName());
-            }
-        }
-
-        Page<NewsType> page = newsTypeMapper.selectPage(new Page<>(pageNum, pageSize), queryWrapper);
-        return Result.data(page);
-
-    }
 
     @Override
     public List<NewsType> findByParentId(Long parentId) {
