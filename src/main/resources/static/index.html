@@ -133,11 +133,8 @@
             secondNewsTypeId: "",
             thirdNewsTypeId: ""
         }, methods:{
-            findOne: function (id){
-              alert("findOne")
-            },
             search: function () {
-                axios.post("/news/search?pageNo=" + this.searchMap.pageNo + "&pageSize=" + this.searchMap.pageSize
+                axios.post("/news/search?pageNum=" + this.searchMap.pageNo + "&pageSize=" + this.searchMap.pageSize
                     , {"newsName": this.searchMap.keywords}).then(function (response) {
                     app.resultMap = response.data.data;
                     //构建分页导航条
